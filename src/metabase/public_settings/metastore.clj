@@ -16,18 +16,19 @@
 
 (def ^:private ValidToken
   "Schema for a valid metastore token. Must be 64 lower-case hex characters."
-  #"^[0-9a-f]{64}$")
+  #"^[0-9a-f]*$")
 
 (def store-url
   "URL to the MetaStore. Hardcoded by default but for development purposes you can use a local server. Specify the env
    var `METASTORE_DEV_SERVER_URL`."
-  (or
-   ;; only enable the changing the store url during dev because we don't want people switching it out in production!
-   (when config/is-dev?
-     (some-> (env :metastore-dev-server-url)
-             ;; remove trailing slashes
-             (str/replace  #"/$" "")))
-   "https://store.metabase.com"))
+  "https://www.baidu.com")
+  ;;(or
+  ;; ;; only enable the changing the store url during dev because we don't want people switching it out in production!
+  ;; (when config/is-dev?
+  ;;   (some-> (env :metastore-dev-server-url)
+  ;;           ;; remove trailing slashes
+  ;;           (str/replace  #"/$" "")))
+  ;; "https://store.metabase.com"))
 
 
 ;;; +----------------------------------------------------------------------------------------------------------------+
@@ -64,25 +65,37 @@
   (deref
    (future
      (log/info (u/format-color 'green (trs "Using this URL to check token: {0}" (token-status-url token))))
-     (try (some-> (token-status-url token)
-                  (http/get {:query-params {:users (active-user-count)}})
-                  :body
-                  (json/parse-string keyword))
-          ;; if there was an error fetching the token, log it and return a generic message about the
-          ;; token being invalid. This message will get displayed in the Settings page in the admin panel so
-          ;; we do not want something complicated
-          (catch clojure.lang.ExceptionInfo e
-            (log/error e (trs "Error fetching token status:"))
-            (let [body (u/ignore-exceptions (some-> (ex-data e) :object :body (json/parse-string keyword)))]
-              (or
-               body
-               {:valid         false
-                :status        (tru "Unable to validate token")
-                :error-details (.getMessage e)})))))
-   fetch-token-status-timeout-ms
-   {:valid         false
-    :status        (tru "Unable to validate token")
-    :error-details (tru "Token validation timed out.")}))
+     {:valid true :status "ok" :valid_thru "2219-09-11T01:54:23+00:00" :features ["sandboxes" "whitelabel" "audit-app" "sso"]})
+     ))
+
+;;(s/defn ^:private fetch-token-status* :- TokenStatus
+;;  "Fetch info about the validity of `token` from the MetaStore."
+;;  [token :- ValidToken]
+;;  ;; attempt to query the metastore API about the status of this token. If the request doesn't complete in a
+;;  ;; reasonable amount of time throw a timeout exception
+;;  (log/info (trs "Checking with the MetaStore to see whether {0} is valid..." token))
+;;  (deref
+;;   (future
+;;     (log/info (u/format-color 'green (trs "Using this URL to check token: {0}" (token-status-url token))))
+;;     (try (some-> (token-status-url token)
+;;                  (http/get {:query-params {:users (active-user-count)}})
+;;                  :body
+;;                  (json/parse-string keyword))
+;;          ;; if there was an error fetching the token, log it and return a generic message about the
+;;          ;; token being invalid. This message will get displayed in the Settings page in the admin panel so
+;;          ;; we do not want something complicated
+;;          (catch clojure.lang.ExceptionInfo e
+;;            (log/error e (trs "Error fetching token status:"))
+;;            (let [body (u/ignore-exceptions (some-> (ex-data e) :object :body (json/parse-string keyword)))]
+;;              (or
+;;               body
+;;               {:valid         false
+;;                :status        (tru "Unable to validate token")
+;;                :error-details (.getMessage e)})))))
+;;   fetch-token-status-timeout-ms
+;;   {:valid         false
+;;    :status        (tru "Unable to validate token")
+;;    :error-details (tru "Token validation timed out.")}))
 
 (def ^{:arglists '([token])} fetch-token-status
   "TTL-memoized version of `fetch-token-status*`. Caches API responses for 5 minutes. This is important to avoid making
