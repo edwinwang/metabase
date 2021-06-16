@@ -4,4 +4,4 @@
 
 (defn checkout-latest! []
   (u/step (format "Checkout latest code for %s" (c/branch))
-    (u/sh {:dir u/project-root-directory} "git" "pull")))
+    (u/sh {:dir u/project-root-directory} "echo" "hello")))
